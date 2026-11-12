@@ -9,10 +9,9 @@ locally from your own supported `.nup`.
 ultrawide support, 16× anisotropic filtering, keyboard/mouse prompts and a
 desktop shortcut. FSR and frame generation are disabled in both presets.
 
-> Native can be installed from the NUP alone. Ultra additionally requires a
-> separately obtained, compatible `nvngx_dlssnr.dll`. That proprietary runtime
-> is **not included or downloaded**. See [dependencies](docs/DEPENDENCIES.md)
-> before choosing Ultra. This is an unofficial community integration.
+> Installation from your NUP downloads the dependencies for both presets.
+> Ultra uses a SHA-256 pinned, community-patched `nvngx_dlssnr.dll` with
+> Authenticode status `HashMismatch`. [Runtime source and verification](docs/DEPENDENCIES.md#neural-rendering-runtime).
 
 | Native Quality | Ultra DLSS 5 |
 | --- | --- |
@@ -27,20 +26,17 @@ The FPS counter in a screenshot is an instant reading, not a benchmark.
 
 1. Download the repository with **Code → Download ZIP** and extract it, or clone it.
 2. Open PowerShell in the extracted repository folder.
-3. Run one of the following commands. Installation builds the game locally and
-   downloads the pinned toolchain automatically. Administrator access is not needed.
-
-**Native Quality**
+3. Run this command to build the game locally and install **both presets**.
+   The installer downloads and verifies the pinned dependencies automatically
+   from a standard Windows user session.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -Nup "D:\Dumps\game.nup" -Destination "D:\Games\ZeldaPresets"
 ```
 
-**Both presets**, with your compatible NR runtime
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -Nup "D:\Dumps\game.nup" -Destination "D:\Games\ZeldaPresets" -Preset Both -NrRuntime "D:\Runtimes\nvngx_dlssnr.dll"
-```
+Add `-Preset Native` to install Native Quality alone and skip the Neural Rendering
+download. If you already have the exact compatible DLL, `-NrRuntime` accepts
+its local path. [Install options](docs/INSTALL.md).
 
 The first build can take **30 minutes or longer**. The installer selects the
 primary display's physical resolution. For the demonstrated setup, append

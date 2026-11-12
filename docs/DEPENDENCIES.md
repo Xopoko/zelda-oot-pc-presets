@@ -44,18 +44,36 @@ This combination ran on an RTX 4090 with NVIDIA driver 621.14 and Vulkan loader 
 
 The pinned download URLs, sizes and SHA-256 values are in [the graphics manifest](../manifests/graphics.json). The file hashes in the installation receipt identify the resulting preset files.
 
-## Neural Rendering runtime supplied by the user
+## Neural Rendering runtime
 
-Ultra requires a separate `nvngx_dlssnr.dll` in addition to the game NUP. NVIDIA confirmed on November 9, 2026 that public access to the DLSS 5 SDK and evaluation releases was unavailable. The installer takes a file you have the right to use through `-NrRuntime` and verifies the exact tested bytes. [NVIDIA Developer Forums](https://forums.developer.nvidia.com/t/official-dlss-5-neural-rendering-plugin-access-for-unreal-engine-5-8-2/382731)
+The installer downloads `streamline.zip` from yumlevi's community RenoDX
+installer release and verifies the archive SHA-256. It extracts only
+`streamline/nvngx_dlssnr.dll` and checks the DLL against the same hash used for
+the in-game validation. The source release can change, so a changed archive is
+rejected before the game build. This repository and its source ZIP contain the
+download recipe. [Community release](https://github.com/yumlevi/renodx-dlss-installer/releases/tag/latest) ·
+[Pinned manifest](../manifests/graphics.json).
+
+The archive contains a community compatibility build for Ada. The source
+repository has no declared license and the DLL's Authenticode status is
+`HashMismatch`. The integration is unofficial. [Source repository](https://github.com/yumlevi/renodx-dlss-installer).
+
+| Field | Pinned archive |
+| --- | --- |
+| GitHub asset | `streamline.zip` (`534399347`) |
+| Size | 144,023,101 bytes |
+| SHA-256 | `5389d164ef99a0e4aba5128da2e87d26de5833aeaf89bfeb0232cfdc8f7229a2` |
 
 | Field | Tested runtime |
 | --- | --- |
 | Version and target | 310.8.0.0, Ada compatibility build |
 | Size | 165,840,496 bytes |
 | SHA-256 | `ceb6432f6fbdf44d886014bcd47241932bf8b67439feef9bbdd0961436662650` |
-| Authenticode | `HashMismatch`. The runtime was modified for Ada. The SHA-256 identifies the tested bytes and provides no publisher authentication. |
+| Authenticode | `HashMismatch`. The runtime was modified for Ada. SHA-256 verifies the file's identity against the tested copy. |
 
-Other DLSS NR builds, including unmodified binaries with the same version number, have different hashes. Use Native if you have only the NUP, prefer a signed runtime, or have a GPU outside the tested Ultra configuration.
+Use `-NrRuntime` with a local copy matching the pinned DLL hash to skip the
+runtime download. A missing path or different hash stops the requested
+installation before compilation. `-Preset Native` skips Neural Rendering setup.
 
 ## Local configuration and diagnosis
 

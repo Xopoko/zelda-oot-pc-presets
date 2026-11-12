@@ -26,6 +26,25 @@ validation. Source packages contain no test saves or proprietary outputs.
   checks launching without an explicit installation path from a different
   working directory.
 
+## Automatic NR download — v1.1.0
+
+An empty-cache Ultra dependency installation completed under Windows PowerShell
+5.1 with **no `-NrRuntime` argument**. The community ZIP and extracted DLL both
+matched their pinned size and SHA-256. All **10 installed files** (six binary/
+manifest files and four text configurations) matched the v1.0.0 game-tested Ultra
+installation byte for byte. The DLL still reports the documented `HashMismatch`.
+
+A focused top-level installer check, stopping at a stubbed build boundary,
+confirmed that the default selects **Both**, prepares NR before invoking the
+builder, and that `-Preset Native` performs no NR download. Cached resolution,
+invalid explicit overrides, corrupt cached files and existing graphics-file
+conflicts were also checked. Failed integrity checks do not silently fetch a
+different runtime or overwrite an existing preset.
+
+Game binaries, renderer settings and the NR bytes are unchanged. This release
+reuses the real-game proof below; the full NUP compilation and gameplay test
+were not repeated just for the acquisition change.
+
 ## Integrated installation and game test — 12 November 2026
 
 The installer completed a **fresh build from the NUP** in an independent

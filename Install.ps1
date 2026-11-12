@@ -5,13 +5,13 @@ Build an isolated Zelda installation from your own supported NUP.
 .EXAMPLE
 .\Install.ps1 -Nup 'D:\My games\game.nup' -Destination 'D:\Games\ZeldaPresets'
 .EXAMPLE
-.\Install.ps1 -Nup 'D:\My games\game.nup' -Destination 'D:\Games\ZeldaPresets' -Preset Both -NrRuntime 'D:\My runtimes\nvngx_dlssnr.dll'
+.\Install.ps1 -Nup 'D:\My games\game.nup' -Destination 'D:\Games\ZeldaPresets' -Preset Native
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true)][string]$Nup,
     [string]$Destination = (Join-Path $env:LOCALAPPDATA 'ZeldaOotPresets'),
-    [ValidateSet('Native','Ultra','Both')][string]$Preset = 'Native',
+    [ValidateSet('Native','Ultra','Both')][string]$Preset = 'Both',
     [string]$NrRuntime,
     [ValidatePattern('^(auto|[0-9]{3,5}x[0-9]{3,5})$')][string]$Resolution = 'auto',
     [ValidateSet('en-US','en-GB','fr','fr-CA','de','it','es','es-419','pt-BR','nl','pl','ru','ja','ko','zh-Hans','zh-Hant')][string]$Language = 'en-US',
@@ -39,9 +39,9 @@ if (Test-Path -LiteralPath $Destination) {
     }
 }
 $needUltra = $Preset -ne 'Native'
-if ($needUltra) {
-    if (!$NrRuntime -or !(Test-Path -LiteralPath $NrRuntime -PathType Leaf)) {
-        throw 'Ultra needs your separately obtained compatible nvngx_dlssnr.dll. Use -NrRuntime; see docs/DEPENDENCIES.md. Native requires only the NUP.'
+if ($needUltra -and $NrRuntime) {
+    if (!(Test-Path -LiteralPath $NrRuntime -PathType Leaf)) {
+        throw 'The explicitly supplied -NrRuntime file does not exist.'
     }
     $NrRuntime = (Resolve-Path -LiteralPath $NrRuntime).Path
     $nrHash = (Get-FileHash -LiteralPath $NrRuntime -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -87,10 +87,14 @@ $receipts = Join-Path $Destination 'receipts'
 New-Item -ItemType Directory -Path $receipts -Force | Out-Null
 if (!$DownloadCache) { $DownloadCache = Join-Path $Destination 'downloads' }
 $DownloadCache = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($DownloadCache)
-$installState = [ordered]@{schemaVersion=1; packageVersion='1.0.0'; status='installing'; preset=$Preset; resolution=$Resolution; startedUtc=[DateTime]::UtcNow.ToString('o')}
+$installState = [ordered]@{schemaVersion=1; packageVersion='1.1.0'; status='installing'; preset=$Preset; resolution=$Resolution; startedUtc=[DateTime]::UtcNow.ToString('o')}
 $installState | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Destination 'installation-status.json') -Encoding UTF8
 
 try {
+    if ($needUltra) {
+        Write-Host 'Preparing the compatible Ultra NR runtime (verified community download, or optional local override).'
+        $NrRuntime = & (Join-Path $source 'scripts/Install-Graphics.ps1') -ResolveRuntimeOnly -Cache $DownloadCache -NrRuntime $NrRuntime
+    }
     Write-Host '1/5 Preparing the pinned Hookshot toolchain and your NUP. The first build can take 30 minutes or longer.'
     $buildArgs = @{ Nup=$Nup; Destination=(Join-Path $Destination 'base'); WorkRoot=(Join-Path $Destination 'build'); Jobs=$Jobs; DownloadCache=$DownloadCache }
     if ($ExistingBuild) { $buildArgs.ExistingBuild = $ExistingBuild }
@@ -137,7 +141,7 @@ try {
         Copy-Item -LiteralPath $mod -Destination $mods -Recurse
     }
     if ($needUltra) {
-        Write-Host '4/5 Fetching the pinned Ultra components and staging your NR runtime.'
+        Write-Host '4/5 Fetching the pinned Ultra components and staging the verified NR runtime.'
         & (Join-Path $source 'scripts/Install-Graphics.ps1') -Bin (Join-Path $Destination 'ultra/bin') -Cache $DownloadCache -NrRuntime $NrRuntime -ReceiptPath (Join-Path $receipts 'graphics.json') | Out-Host
     } else { Write-Host '4/5 Native has no neural-rendering dependencies.' }
 
@@ -158,7 +162,7 @@ try {
     Copy-Item -LiteralPath (Join-Path $source 'Launch.ps1') -Destination $Destination
     Copy-Item -LiteralPath (Join-Path $source 'scripts/LauncherWindow.cs') -Destination (Join-Path $Destination 'scripts')
     $manifest = [ordered]@{
-        schemaVersion=1; packageVersion='1.0.0'; hookshotVersion='2.1.0'; guestBuild='e0f3ccfa';
+        schemaVersion=1; packageVersion='1.1.0'; hookshotVersion='2.1.0'; guestBuild='e0f3ccfa';
         resolution=$Resolution; romfs='base/romfs'; profile='profile';
         presets=[ordered]@{native=@{gameRoot='native';available=($selected -contains 'native')};ultra=@{gameRoot='ultra';available=($selected -contains 'ultra')}};
         buildKind=$build.BuildKind; createdUtc=[DateTime]::UtcNow.ToString('o')

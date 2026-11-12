@@ -34,9 +34,6 @@ function Expect-Refusal([hashtable]$Arguments, [string]$Pattern) {
 }
 Expect-Refusal @{Nup=$nup; Destination=$existing} 'Destination is not empty'
 if ([IO.File]::ReadAllText($marker) -ne 'preserve me') { throw 'Existing data changed.' }
-$missingNrDestination = Join-Path $temporary 'missing nr'
-Expect-Refusal @{Nup=$nup; Destination=$missingNrDestination; Preset='Both'} 'Ultra needs'
-if (Test-Path -LiteralPath $missingNrDestination) { throw 'Missing NR created a partial installation.' }
 $wrongNrDestination = Join-Path $temporary 'wrong nr'
 Expect-Refusal @{Nup=$nup; Destination=$wrongNrDestination; Preset='Both'; NrRuntime=$nup} 'NR runtime is not'
 if (Test-Path -LiteralPath $wrongNrDestination) { throw 'Wrong NR created a partial installation.' }
@@ -50,6 +47,7 @@ if ($Python) {
     if ($LASTEXITCODE -ne 0) { throw 'Scene-patch behavioral checks failed.' }
 }
 & (Join-Path $PSScriptRoot 'Test-LauncherDefaults.ps1')
+& (Join-Path $PSScriptRoot 'Test-NrResolution.ps1')
 Write-Host 'PASS: PowerShell syntax, JSON, save-preserving refusal, NR preflight and source-checkout isolation.'
 # The directory contains only this test's tiny text fixtures. Verify its parent first.
 if ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($temporary)) -ne [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')) {

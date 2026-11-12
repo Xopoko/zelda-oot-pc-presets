@@ -1,9 +1,10 @@
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName='Install')]
 param(
-    [Parameter(Mandatory)] [string]$Bin,
+    [Parameter(Mandatory, ParameterSetName='Install')] [string]$Bin,
     [Parameter(Mandatory)] [string]$Cache,
-    [Parameter(Mandatory)] [string]$NrRuntime,
-    [Parameter(Mandatory)] [string]$ReceiptPath
+    [string]$NrRuntime,
+    [Parameter(Mandatory, ParameterSetName='Install')] [string]$ReceiptPath,
+    [Parameter(Mandatory, ParameterSetName='Resolve')] [switch]$ResolveRuntimeOnly
 )
 
 Set-StrictMode -Version Latest
@@ -91,21 +92,57 @@ function Expand-PinnedGraphicsArchive {
     }
 }
 
+function Resolve-PinnedRuntime {
+    if ($NrRuntime) {
+        # An explicitly supplied file always wins; never conceal a bad override
+        # by downloading a replacement instead.
+        $local = (Get-Item -LiteralPath $NrRuntime).FullName
+        Assert-PinnedFile $local $manifest.nrRuntime
+        return $local
+    }
+    $target = Join-Path $Cache "$($manifest.nrRuntime.sha256)-$($manifest.nrRuntime.file)"
+    if (Test-Path -LiteralPath $target) {
+        Assert-PinnedFile $target $manifest.nrRuntime
+        return $target
+    }
+    [void][IO.Directory]::CreateDirectory($Cache)
+    $archivePath = Get-PinnedDownload $manifest.nrRuntime.download
+    $temporary = "$target.$([Guid]::NewGuid().ToString('N')).extracting"
+    try {
+        $zip = [IO.Compression.ZipFile]::OpenRead($archivePath)
+        try {
+            # Extract only the exact pinned DLL, never the archive's other files.
+            $entries = @($zip.Entries | Where-Object { $_.FullName -ceq $manifest.nrRuntime.download.entry })
+            if ($entries.Count -ne 1 -or $entries[0].Length -ne $manifest.nrRuntime.bytes) {
+                throw 'The pinned NR archive does not contain the expected single DLL entry.'
+            }
+            [IO.Compression.ZipFileExtensions]::ExtractToFile($entries[0], $temporary)
+        } finally { $zip.Dispose() }
+        Assert-PinnedFile $temporary $manifest.nrRuntime
+        try { [IO.File]::Move($temporary, $target) }
+        catch [IO.IOException] {
+            if (!(Test-Path -LiteralPath $target -PathType Leaf)) { throw }
+            Assert-PinnedFile $target $manifest.nrRuntime
+        }
+    } finally { Remove-Item -LiteralPath $temporary -ErrorAction SilentlyContinue }
+    return $target
+}
+
 $repo = Split-Path -Parent $PSScriptRoot
 $manifest = Get-Content -LiteralPath (Join-Path $repo 'manifests/graphics.json') -Raw | ConvertFrom-Json
 if ($manifest.schemaVersion -ne 1) { throw 'Unsupported graphics manifest schema.' }
-$Bin = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Bin)
 $Cache = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Cache)
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+if ($PSVersionTable.PSVersion.Major -lt 6) {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+}
+if ($ResolveRuntimeOnly) {
+    Resolve-PinnedRuntime
+    return
+}
+$Bin = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Bin)
 $ReceiptPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ReceiptPath)
-
-# Reject an incompatible runtime before downloading anything or modifying Bin.
-try {
-    $runtime = (Get-Item -LiteralPath $NrRuntime).FullName
-    Assert-PinnedFile $runtime $manifest.nrRuntime
-}
-catch {
-    throw "Ultra requires the separately supplied Ada-compatible DLSS NR 310.8.0 runtime. $($_.Exception.Message) See docs/DEPENDENCIES.md."
-}
 
 $files = @($manifest.nrRuntime)
 foreach ($download in $manifest.downloads) {
@@ -122,11 +159,7 @@ foreach ($name in $names) {
 }
 if (Test-Path -LiteralPath $ReceiptPath) { throw "Graphics receipt already exists: $ReceiptPath" }
 
-Add-Type -AssemblyName System.IO.Compression
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-if ($PSVersionTable.PSVersion.Major -lt 6) {
-    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-}
+$runtime = Resolve-PinnedRuntime
 
 $null = [IO.Directory]::CreateDirectory($Cache)
 $null = [IO.Directory]::CreateDirectory($Bin)
@@ -185,4 +218,4 @@ finally {
     [IO.Directory]::Delete($stage)
 }
 
-Write-Host 'Ultra components staged and verified. The supplied NR runtime has a known Authenticode HashMismatch.'
+Write-Host 'Ultra components staged and verified. The community NR runtime has a known Authenticode HashMismatch.'

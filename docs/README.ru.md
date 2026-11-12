@@ -28,26 +28,19 @@ FSR и генерация кадров выключены. В наших про�
 Для сборки рекомендуется от 32 ГиБ оперативной памяти.
 
 Скачайте репозиторий через **Code → Download ZIP**, распакуйте и откройте
-PowerShell в этой папке. Для Native достаточно одной команды:
+PowerShell в этой папке. Эта команда соберёт игру из вашего NUP и установит
+оба пресета.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -Nup "D:\Dumps\game.nup" -Destination "D:\Games\ZeldaPresets" -Language ru
 ```
 
-Для обоих пресетов:
+Установщик сам скачивает зависимости, включая проверенную сборку Neural
+Rendering 310.8.0 для Ultra. Это DLL с патчем сообщества для Ada и статусом
+подписи `HashMismatch`. Установщик сверяет SHA-256 архива и DLL до сборки игры.
+Добавьте `-Preset Native`, если нужен только Native Quality, или `-NrRuntime`
+с путём к уже имеющейся DLL с тем же хэшем. [Источник и хэши](DEPENDENCIES.md#neural-rendering-runtime).
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -Nup "D:\Dumps\game.nup" -Destination "D:\Games\ZeldaPresets" -Preset Both -NrRuntime "D:\Runtimes\nvngx_dlssnr.dll" -Language ru
-```
-
-**Для Ultra отдельно нужна совместимая библиотека Neural Rendering**.
-Она не входит в репозиторий и не скачивается установщиком. Это конкретная
-проверенная совместимая сборка 310.8.0 с хэшем, указанным в
-[DEPENDENCIES.md](DEPENDENCIES.md). Её цифровая подпись имеет статус
-`HashMismatch`; это не неизменённая официальная DLL. Другие варианты библиотек
-установщик отклоняет. Нельзя обещать, что одного NUP достаточно для Ultra.
-
-Остальные необходимые зависимости установщик загружает и проверяет сам.
 Глобальные Python/C++ toolchain, Codex и права администратора не нужны.
 Первая сборка может занять 30 минут и дольше. После неё запускайте обычный
 ярлык **Zelda Ocarina of Time - Native Quality** или

@@ -59,6 +59,16 @@
     "file": "nvngx_dlssnr.dll",
     "bytes": 165840496,
     "sha256": "ceb6432f6fbdf44d886014bcd47241932bf8b67439feef9bbdd0961436662650",
-    "authenticode": "HashMismatch"
+    "authenticode": "HashMismatch",
+    "download": {
+      "id": "ada-nr-310.8.0-community-archive",
+      "url": "https://github.com/yumlevi/renodx-dlss-installer/releases/download/latest/streamline.zip",
+      "releasePage": "https://github.com/yumlevi/renodx-dlss-installer/releases/tag/latest",
+      "assetId": 534399347,
+      "file": "streamline.zip",
+      "bytes": 144023101,
+      "sha256": "5389d164ef99a0e4aba5128da2e87d26de5833aeaf89bfeb0232cfdc8f7229a2",
+      "entry": "streamline/nvngx_dlssnr.dll"
+    }
   }
 }
