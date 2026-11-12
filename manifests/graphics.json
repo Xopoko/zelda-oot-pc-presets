@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "downloads": [
+    {
+      "id": "reshade-full-addon-6.8.0",
+      "url": "https://reshade.me/downloads/ReShade_Setup_6.8.0_Addon.exe",
+      "file": "ReShade_Setup_6.8.0_Addon.exe",
+      "bytes": 4318424,
+      "sha256": "afe4c8f13048306307983b8b3d41d5bf00a86820440b0e57dea10950e1176445",
+      "archive": "sfx-zip",
+      "zipOffset": 153088,
+      "entries": [
+        {
+          "file": "ReShade64.dll",
+          "bytes": 5592064,
+          "sha256": "0cee63f9c9f13f3ac909c5b4903f4dbb4b719a7ab3b4f13b0deaf83c814b94f7"
+        },
+        {
+          "file": "ReShade64.json",
+          "bytes": 526,
+          "sha256": "aa21713718843e531da396e2bfc80772c9cb3c369d6c30b836be6b0ae812d503"
+        }
+      ]
+    },
+    {
+      "id": "nigos-dlss5-bridge-1.4.12",
+      "url": "https://github.com/NIGos/dlss5-bridge/releases/download/v1.4.12/dlss5-bridge.addon64",
+      "file": "dlss5-bridge.addon64",
+      "bytes": 508928,
+      "sha256": "4f2acecc1026ae89ac0b92767be66ceea2662ad0ef88710b89c7da7840d548d4",
+      "archive": "file"
+    },
+    {
+      "id": "renodx-dlss5-addon-2.5",
+      "url": "https://github.com/RankFTW/rhi-repo/releases/download/renodx-dlss5-2.5/renodx-dlss5_2.5.zip",
+      "file": "renodx-dlss5_2.5.zip",
+      "bytes": 177857,
+      "sha256": "8476f88b765683b31096d6650820c1adacb4792ccfa7f229c01e4218aa695f44",
+      "archive": "zip",
+      "entries": [
+        {
+          "file": "renodx-dlss5.addon64",
+          "bytes": 391168,
+          "sha256": "87aef9ddd937c7241e6bf8d8efea0045d63559135e254c60dab316db3d3a4aee"
+        }
+      ]
+    },
+    {
+      "id": "nvidia-dlss-sr-310.9.1",
+      "url": "https://raw.githubusercontent.com/NVIDIA/DLSS/374959484e79a640feaba44c93ac8cfb0a03f5b5/lib/Windows_x86_64/rel/nvngx_dlss.dll",
+      "file": "nvngx_dlss.dll",
+      "bytes": 58956912,
+      "sha256": "3975567b8943c53acce397f2b72380092f84f162d00b0d2c7d08a1025c563983",
+      "archive": "file"
+    }
+  ],
+  "nrRuntime": {
+    "id": "nvidia-dlssnr-310.8.0-ada",
+    "file": "nvngx_dlssnr.dll",
+    "bytes": 165840496,
+    "sha256": "ceb6432f6fbdf44d886014bcd47241932bf8b67439feef9bbdd0961436662650",
+    "authenticode": "HashMismatch"
+  }
+}

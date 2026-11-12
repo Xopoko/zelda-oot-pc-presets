@@ -1,0 +1,26 @@
+# Local installations, downloads, build products and user data never belong here.
+/.local/
+/install/
+/downloads/
+/work/
+/test-output/
+__pycache__/
+*.pyc
+*.log
+*.nup
+*.nsp
+*.xci
+*.dll
+*.exe
+*.addon64
+*.bin
+*.key
+*.keys
+*.zip
+*.7z
+*.env
+**/romfs/
+**/exefs/
+**/save/
+**/profile/
+**/user/
