@@ -24,7 +24,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-$packageVersion = '1.1.0'
+$packageVersion = '1.2.0'
 $source = $PSScriptRoot
 $graphicsScript = Join-Path $source 'scripts/Install-Graphics.ps1'
 $Destination = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Destination)

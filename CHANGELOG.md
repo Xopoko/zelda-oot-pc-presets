@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.0
 
 - Remove `-ExistingBuild`. It only accepted one specific local build, so every
   install now compiles from the NUP.
