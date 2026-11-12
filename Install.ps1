@@ -18,14 +18,15 @@ param(
     [ValidateRange(0,128)][int]$Jobs = 0,
     [ValidateRange(0,98304)][int]$TextureBudgetMB = 0,
     [string]$DownloadCache,
-    [string]$ExistingBuild,
     [string]$ImportProfile,
     [switch]$NoShortcuts,
     [string]$ShortcutDirectory
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+$packageVersion = '1.1.0'
 $source = $PSScriptRoot
+$graphicsScript = Join-Path $source 'scripts/Install-Graphics.ps1'
 $Destination = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Destination)
 $sourcePrefix = [IO.Path]::GetFullPath($source).TrimEnd('\','/') + [IO.Path]::DirectorySeparatorChar
 if ($Destination.TrimEnd('\','/') -eq $source.TrimEnd('\','/') -or $Destination.StartsWith($sourcePrefix, [StringComparison]::OrdinalIgnoreCase)) {
@@ -38,16 +39,12 @@ if (Test-Path -LiteralPath $Destination) {
         throw 'Destination is not empty. To preserve saves and settings, use a NEW folder. See docs/INSTALL.md for upgrades.'
     }
 }
+if (!$DownloadCache) { $DownloadCache = Join-Path $Destination 'downloads' }
+$DownloadCache = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($DownloadCache)
 $needUltra = $Preset -ne 'Native'
 if ($needUltra -and $NrRuntime) {
-    if (!(Test-Path -LiteralPath $NrRuntime -PathType Leaf)) {
-        throw 'The explicitly supplied -NrRuntime file does not exist.'
-    }
-    $NrRuntime = (Resolve-Path -LiteralPath $NrRuntime).Path
-    $nrHash = (Get-FileHash -LiteralPath $NrRuntime -Algorithm SHA256).Hash.ToLowerInvariant()
-    if ($nrHash -ne 'ceb6432f6fbdf44d886014bcd47241932bf8b67439feef9bbdd0961436662650') {
-        throw 'NR runtime is not the tested 310.8.0 compatibility build. No game was installed. See docs/DEPENDENCIES.md.'
-    }
+    # Check a local runtime before creating anything.
+    $NrRuntime = & $graphicsScript -ResolveRuntimeOnly -Cache $DownloadCache -NrRuntime $NrRuntime
 }
 if ($ImportProfile) {
     $ImportProfile = (Resolve-Path -LiteralPath $ImportProfile).Path
@@ -85,28 +82,29 @@ if (!$NoShortcuts -and $ShortcutDirectory) {
 New-Item -ItemType Directory -Path $Destination -Force | Out-Null
 $receipts = Join-Path $Destination 'receipts'
 New-Item -ItemType Directory -Path $receipts -Force | Out-Null
-if (!$DownloadCache) { $DownloadCache = Join-Path $Destination 'downloads' }
-$DownloadCache = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($DownloadCache)
-$installState = [ordered]@{schemaVersion=1; packageVersion='1.1.0'; status='installing'; preset=$Preset; resolution=$Resolution; startedUtc=[DateTime]::UtcNow.ToString('o')}
-$installState | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Destination 'installation-status.json') -Encoding UTF8
+$installState = [ordered]@{schemaVersion=1; packageVersion=$packageVersion; status='installing'; preset=$Preset; resolution=$Resolution; startedUtc=[DateTime]::UtcNow.ToString('o')}
+function Save-InstallState {
+    $installState | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Destination 'installation-status.json') -Encoding UTF8
+}
+Save-InstallState
 
 try {
-    if ($needUltra) {
-        Write-Host 'Preparing the compatible Ultra NR runtime (verified community download, or optional local override).'
-        $NrRuntime = & (Join-Path $source 'scripts/Install-Graphics.ps1') -ResolveRuntimeOnly -Cache $DownloadCache -NrRuntime $NrRuntime
+    if ($needUltra -and !$NrRuntime) {
+        # Download the NR runtime before the long build so a bad download fails early.
+        Write-Host 'Downloading the Ultra NR runtime.'
+        $NrRuntime = & $graphicsScript -ResolveRuntimeOnly -Cache $DownloadCache
     }
     Write-Host '1/5 Preparing the pinned Hookshot toolchain and your NUP. The first build can take 30 minutes or longer.'
     $buildArgs = @{ Nup=$Nup; Destination=(Join-Path $Destination 'base'); WorkRoot=(Join-Path $Destination 'build'); Jobs=$Jobs; DownloadCache=$DownloadCache }
-    if ($ExistingBuild) { $buildArgs.ExistingBuild = $ExistingBuild }
     $build = & (Join-Path $source 'scripts/Build-Hookshot.ps1') @buildArgs
-    if (!$build -or !$build.ToolsPython) { throw 'Build step did not return its verified Python/runtime receipt.' }
+    if (!$build -or !$build.ToolsPython) { throw 'The build step returned no result.' }
     $python = $build.ToolsPython
     $base = $build.GameRoot
     $selected = @('native')
     if ($Preset -eq 'Ultra') { $selected = @('ultra') }
     elseif ($Preset -eq 'Both') { $selected = @('native','ultra') }
 
-    Write-Host '2/5 Creating independent presets and applying the guarded full-resolution fix.'
+    Write-Host '2/5 Creating presets and patching the scene-width cap.'
     $runtimeFiles = @('image.bin','hookshot_shaders.bin','hookshot_computes.bin','hookshot_pipeline_states_shipped.bin','hookshot_version.txt','.hookshot_romfs','.hookshot_romfs_checked')
     foreach ($name in $selected) {
         $game = Join-Path $Destination $name
@@ -119,7 +117,6 @@ try {
         foreach ($file in @('hookshot.exe','hookshot_vk.dll','SDL2.dll','SDL3.dll')) {
             Copy-Item -LiteralPath (Join-Path $base "bin/$file") -Destination (Join-Path $bin $file)
         }
-        # Python here is the pinned, isolated toolchain interpreter. No global packages are changed.
         & $python -I -B (Join-Path $source 'tools/patch_scene.py') (Join-Path $game 'image.bin') --receipt (Join-Path $receipts "scene-$name.json")
         if ($LASTEXITCODE -ne 0) { throw "Scene cap patch failed for $name" }
         Copy-Item -LiteralPath (Join-Path $source 'presets/quality.ini') -Destination (Join-Path $game 'hookshot_options.ini')
@@ -131,7 +128,7 @@ try {
         [IO.File]::WriteAllText((Join-Path $game 'language.txt'), "$Language`n", [Text.UTF8Encoding]::new($false))
     }
 
-    Write-Host '3/5 Generating keyboard and mouse prompts from your own game resources.'
+    Write-Host '3/5 Generating keyboard and mouse prompts.'
     $first = Join-Path $Destination $selected[0]
     $mod = Join-Path $first 'mods/Keyboard prompts'
     & (Join-Path $source 'scripts/Build-Prompts.ps1') -Python $python -Romfs (Join-Path $base 'romfs') -Options (Join-Path $first 'hookshot_options.ini') -Output $mod -Cache $DownloadCache -ReceiptPath (Join-Path $receipts 'keyboard-prompts.json') | Out-Host
@@ -141,18 +138,17 @@ try {
         Copy-Item -LiteralPath $mod -Destination $mods -Recurse
     }
     if ($needUltra) {
-        Write-Host '4/5 Fetching the pinned Ultra components and staging the verified NR runtime.'
-        & (Join-Path $source 'scripts/Install-Graphics.ps1') -Bin (Join-Path $Destination 'ultra/bin') -Cache $DownloadCache -NrRuntime $NrRuntime -ReceiptPath (Join-Path $receipts 'graphics.json') | Out-Host
-    } else { Write-Host '4/5 Native has no neural-rendering dependencies.' }
+        Write-Host '4/5 Installing Ultra components.'
+        & $graphicsScript -Bin (Join-Path $Destination 'ultra/bin') -Cache $DownloadCache -NrRuntime $NrRuntime -ReceiptPath (Join-Path $receipts 'graphics.json') | Out-Host
+    } else { Write-Host '4/5 Skipped: Ultra not selected.' }
 
-    Write-Host '5/5 Preparing the shared save folder, launcher and desktop shortcuts.'
+    Write-Host '5/5 Creating the save folder, launcher and shortcuts.'
     $profile = Join-Path $Destination 'profile'
     New-Item -ItemType Directory -Path $profile -Force | Out-Null
     if ($ImportProfile) {
         if (Get-Process -Name hookshot -ErrorAction SilentlyContinue) {
             throw 'Hookshot was opened during the build. Close it before copying saves. The source profile is untouched.'
         }
-        # Copy only the user save directory; no shader caches, environment files or mods.
         Copy-Item -LiteralPath (Join-Path $ImportProfile 'save') -Destination $profile -Recurse
         $backup = Join-Path $Destination 'backups/imported-save'
         New-Item -ItemType Directory -Path $backup -Force | Out-Null
@@ -162,10 +158,10 @@ try {
     Copy-Item -LiteralPath (Join-Path $source 'Launch.ps1') -Destination $Destination
     Copy-Item -LiteralPath (Join-Path $source 'scripts/LauncherWindow.cs') -Destination (Join-Path $Destination 'scripts')
     $manifest = [ordered]@{
-        schemaVersion=1; packageVersion='1.1.0'; hookshotVersion='2.1.0'; guestBuild='e0f3ccfa';
+        schemaVersion=1; packageVersion=$packageVersion; hookshotVersion='2.1.0'; guestBuild='e0f3ccfa';
         resolution=$Resolution; romfs='base/romfs'; profile='profile';
         presets=[ordered]@{native=@{gameRoot='native';available=($selected -contains 'native')};ultra=@{gameRoot='ultra';available=($selected -contains 'ultra')}};
-        buildKind=$build.BuildKind; createdUtc=[DateTime]::UtcNow.ToString('o')
+        createdUtc=[DateTime]::UtcNow.ToString('o')
     }
     $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $Destination 'install.json') -Encoding UTF8
     if (!$NoShortcuts) {
@@ -174,12 +170,12 @@ try {
         & (Join-Path $source 'scripts/New-Shortcuts.ps1') @shortcutArgs | Out-Host
     }
     $installState.status = 'installed'
-    $installState | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Destination 'installation-status.json') -Encoding UTF8
+    Save-InstallState
     Write-Host "Installed: $Destination"
-    Write-Host 'Start a desktop shortcut to play. First entry into each scene may compile shaders. Saves are shared between these two presets.'
+    Write-Host 'Start the game from a desktop shortcut. The first visit to each scene compiles shaders.'
 } catch {
     $installState.status = 'failed'
     $installState['error'] = $_.Exception.Message
-    $installState | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Destination 'installation-status.json') -Encoding UTF8
+    Save-InstallState
     throw
 }

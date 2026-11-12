@@ -1,5 +1,6 @@
 #requires -Version 5.1
-# Offline negative-path checks. The real cold-download check is documented separately.
+# Offline checks that bad NR runtimes and existing presets are refused without
+# downloading a replacement or overwriting anything.
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $module = Join-Path $root 'scripts/Install-Graphics.ps1'
@@ -7,13 +8,12 @@ $pin = (Get-Content -Raw -LiteralPath (Join-Path $root 'manifests/graphics.json'
 $temporary = Join-Path ([IO.Path]::GetTempPath()) ('zelda-nr-test-' + [Guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($temporary)
 function Expect-NrRefusal([hashtable]$Arguments, [string]$Pattern) {
-    $caught = $false
     try { & $module @Arguments | Out-Null }
     catch {
         if ($_.Exception.Message -notmatch $Pattern) { throw }
-        $caught = $true
+        return
     }
-    if (!$caught) { throw "Expected NR refusal: $Pattern" }
+    throw "Expected NR refusal: $Pattern"
 }
 try {
     $badOverride = Join-Path $temporary 'wrong.dll'
@@ -40,8 +40,4 @@ try {
         throw 'Conflicting preset was modified or caused a download.'
     }
     Write-Host 'PASS: bad override, corrupt NR cache and existing graphics fail without fallback or overwrite.'
-} finally {
-    $parent = [IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($temporary))
-    if ($parent -ne [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')) { throw 'Unexpected test directory.' }
-    Remove-Item -LiteralPath $temporary -Recurse -Force
-}
+} finally { Remove-Item -LiteralPath $temporary -Recurse -Force }

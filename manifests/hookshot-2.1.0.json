@@ -60,18 +60,5 @@
     "HookshotBuilder/HookshotBuilder-Setup.exe": "552a24c4c210a87dd3d6494a88a1a707cbedf6e50ddd2604caa5719c5c63a05e",
     "HookshotBuilder/tools/python/python.exe": "4942b86a6597e5aee0128daa00050ed79bc21f6e709a78eb19cbfeb0c2f39ac9",
     "HookshotBuilder/tools/nx2/make_game.py": "c7a09588c6a463ac5cc7a05078e64673f2c7c115009d9fc68184ba55903394fd"
-  },
-  "knownBuild": {
-    "files": {
-      "bin/hookshot.exe": "cecea8836e4b79907e48146a61dde144ae00a0658398040af540c7065676c9bc",
-      "bin/hookshot_vk.dll": "4742b668719db71a48af3c21609d42e95bd99d79d751c92451846db6cad6f520",
-      "bin/SDL2.dll": "60cc728ebfd0915c94760916cb26c240bd152361b13b3692154ac5794be91ebf",
-      "bin/SDL3.dll": "66844f10251cc1c10619ed5d8e4e3224f564900ee6d69ba87d63de782addae40",
-      "image.bin": "f77dd8d6448b4204ae2be6c91872f6a3ca4ae64fc6566e7b3ed0c3b908d98ee2",
-      "hookshot_shaders.bin": "413cc8fb8b438419bfc3aac98bdac7fe351af2243926c5805d69e46f58b8664a3",
-      "hookshot_pipeline_states_shipped.bin": "6f1cf3a0c0dd24cc6f682a8c1b329aba0a71e630c0a1c7bf2273aac793e059bc"
-    },
-    "nupBytes": 25020741061,
-    "nupSha256": "a6c3a78cc8eae635b70c8cf8c4871685fa1fb204279169f30efbb62ab9e98be5"
   }
 }

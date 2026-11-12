@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Remove `-ExistingBuild`. It only accepted one specific local build, so every
+  install now compiles from the NUP.
+- Shorter documentation; `docs/VALIDATION.md` is folded into `docs/TECHNICAL.md`.
+- One shared, hash-checked download helper for all installer scripts.
+
 ## 1.1.0
 
 - Install Native Quality and Ultra DLSS 5 by default from the supplied NUP.

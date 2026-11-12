@@ -38,8 +38,8 @@ function Read-CurrentLog([string]$Path) {
 }
 
 function Get-LastRuntimeDestroy([string]$BridgeTail) {
-    $matches = [regex]::Matches($BridgeTail, '(?m)^.*destroying the effect runtime.*$')
-    if ($matches.Count -gt 0) { return $matches[$matches.Count - 1].Value }
+    $found = [regex]::Matches($BridgeTail, '(?m)^.*destroying the effect runtime.*$')
+    if ($found.Count -gt 0) { return $found[$found.Count - 1].Value }
     return ''
 }
 
@@ -180,7 +180,7 @@ try {
         $startInfo = New-Object Diagnostics.ProcessStartInfo
         $startInfo.FileName = $exe
         $startInfo.WorkingDirectory = $game
-        # Windows paths cannot contain quotes. Double final backslashes for the closing quote.
+        # Double trailing backslashes so they don't escape the closing quote.
         $startInfo.Arguments = '--user "{0}" --romfs "{1}"' -f ($profilePath -replace '(\\+)$', '$1$1'), ($romfs -replace '(\\+)$', '$1$1')
         $startInfo.UseShellExecute = $false
         $startInfo.CreateNoWindow = $true
@@ -194,8 +194,7 @@ try {
             $startInfo.EnvironmentVariables['RESHADE_BASE_PATH_OVERRIDE'] = $bin
             $bridgeLog = Join-Path $bin 'dlss5-bridge.log'
             $reshadeLog = Join-Path $bin 'ReShade.log'
-            # These files belong to the finished session. Keep one prior run so a stale
-            # success marker cannot be mistaken for activation in this launch.
+            # Rotate the previous session's logs so their success lines can't confirm this launch.
             foreach ($path in @($bridgeLog, $reshadeLog)) {
                 if (Test-Path -LiteralPath $path -PathType Leaf) {
                     Move-Item -LiteralPath $path -Destination "$path.previous" -Force

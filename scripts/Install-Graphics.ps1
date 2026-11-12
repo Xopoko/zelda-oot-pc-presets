@@ -1,64 +1,29 @@
+#requires -Version 5.1
+# Installs the pinned Ultra files from manifests/graphics.json into a preset's
+# bin directory. -ResolveRuntimeOnly only fetches and verifies the NR runtime
+# and returns its path, so Install.ps1 can fail before the long build.
 [CmdletBinding(DefaultParameterSetName='Install')]
 param(
-    [Parameter(Mandatory, ParameterSetName='Install')] [string]$Bin,
-    [Parameter(Mandatory)] [string]$Cache,
+    [Parameter(Mandatory, ParameterSetName='Install')][string]$Bin,
+    [Parameter(Mandatory)][string]$Cache,
     [string]$NrRuntime,
-    [Parameter(Mandatory, ParameterSetName='Install')] [string]$ReceiptPath,
-    [Parameter(Mandatory, ParameterSetName='Resolve')] [switch]$ResolveRuntimeOnly
+    [Parameter(Mandatory, ParameterSetName='Install')][string]$ReceiptPath,
+    [Parameter(Mandatory, ParameterSetName='Resolve')][switch]$ResolveRuntimeOnly
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$ProgressPreference = 'SilentlyContinue'
+. (Join-Path $PSScriptRoot 'Downloads.ps1')
 
-function Assert-PinnedFile {
-    param([string]$Path, $Pin)
+function Assert-Pin([string]$Path, $Pin) { Assert-FileHash $Path $Pin.sha256 $Pin.bytes $Pin.file }
 
-    $file = Get-Item -LiteralPath $Path -ErrorAction SilentlyContinue
-    if (!$file -or $file.PSIsContainer -or $file.Length -ne $Pin.bytes) {
-        throw "Expected $($Pin.bytes) bytes for $($Pin.file). Check the selected file or cached download."
-    }
-    $actual = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
-    if ($actual -ne $Pin.sha256) {
-        throw "SHA-256 mismatch for $($Pin.file). Expected $($Pin.sha256), got $actual."
-    }
+function Get-Pin($Pin) {
+    Get-PinnedDownload $Pin.url (Join-Path $Cache "$($Pin.sha256)-$($Pin.file)") $Pin.sha256 $Pin.bytes
 }
 
-function Get-PinnedDownload {
-    param($Pin)
-
-    $path = Join-Path $Cache "$($Pin.sha256)-$($Pin.file)"
-    if (Test-Path -LiteralPath $path) {
-        Assert-PinnedFile $path $Pin
-        return $path
-    }
-
-    $temporary = "$path.$([Guid]::NewGuid().ToString('N')).download"
-    Write-Host "Downloading $($Pin.id) ..."
-    try {
-        Invoke-WebRequest -UseBasicParsing -Uri $Pin.url -OutFile $temporary
-        Assert-PinnedFile $temporary $Pin
-        try {
-            [IO.File]::Move($temporary, $path)
-        }
-        catch [IO.IOException] {
-            # Another install can complete the same download while this one runs.
-            if (!(Test-Path -LiteralPath $path -PathType Leaf)) { throw }
-            Assert-PinnedFile $path $Pin
-        }
-    }
-    finally {
-        Remove-Item -LiteralPath $temporary -ErrorAction SilentlyContinue
-    }
-    return $path
-}
-
-function Expand-PinnedGraphicsArchive {
-    param([string]$Path, $Pin)
-
+function Expand-PinnedEntries([string]$Path, $Pin) {
     if ($Pin.archive -eq 'sfx-zip') {
-        # ReShade's installer appends a ZIP with offsets relative to this point.
-        # The enclosing installer is hash checked before any bytes are read here.
+        # ReShade's setup executable has a ZIP appended at a fixed offset.
         $bytes = [IO.File]::ReadAllBytes($Path)
         $offset = [int]$Pin.zipOffset
         if ([BitConverter]::ToUInt32($bytes, $offset) -ne 0x04034B50) {
@@ -66,156 +31,104 @@ function Expand-PinnedGraphicsArchive {
         }
         $stream = [IO.MemoryStream]::new($bytes, $offset, $bytes.Length - $offset)
     }
-    else {
-        $stream = [IO.File]::OpenRead($Path)
-    }
-
+    else { $stream = [IO.File]::OpenRead($Path) }
     try {
         $archive = [IO.Compression.ZipArchive]::new($stream, [IO.Compression.ZipArchiveMode]::Read, $true)
         try {
             foreach ($file in $Pin.entries) {
                 $entry = $archive.GetEntry($file.file)
-                if (!$entry -or $entry.Length -ne $file.bytes) {
-                    throw "The archive $($Pin.file) is missing the expected entry $($file.file)."
-                }
-                $target = Join-Path $stage $file.file
+                if (!$entry) { throw "$($Pin.file) has no entry $($file.file)." }
+                $target = Join-Path $Bin $file.file
                 [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $target)
-                Assert-PinnedFile $target $file
+                Assert-Pin $target $file
             }
         }
-        finally {
-            $archive.Dispose()
-        }
+        finally { $archive.Dispose() }
     }
-    finally {
-        $stream.Dispose()
-    }
+    finally { $stream.Dispose() }
 }
 
-function Resolve-PinnedRuntime {
+function Resolve-NrRuntime {
+    $pin = $manifest.nrRuntime
     if ($NrRuntime) {
-        # An explicitly supplied file always wins; never conceal a bad override
-        # by downloading a replacement instead.
+        # Never replace a bad explicit file with a download.
         $local = (Get-Item -LiteralPath $NrRuntime).FullName
-        Assert-PinnedFile $local $manifest.nrRuntime
+        try { Assert-Pin $local $pin }
+        catch { throw "-NrRuntime is not the pinned NR runtime 310.8.0 (see docs/DEPENDENCIES.md). $($_.Exception.Message)" }
         return $local
     }
-    $target = Join-Path $Cache "$($manifest.nrRuntime.sha256)-$($manifest.nrRuntime.file)"
+    $target = Join-Path $Cache "$($pin.sha256)-$($pin.file)"
     if (Test-Path -LiteralPath $target) {
-        Assert-PinnedFile $target $manifest.nrRuntime
+        Assert-Pin $target $pin
         return $target
     }
-    [void][IO.Directory]::CreateDirectory($Cache)
-    $archivePath = Get-PinnedDownload $manifest.nrRuntime.download
-    $temporary = "$target.$([Guid]::NewGuid().ToString('N')).extracting"
+    $archivePath = Get-Pin $pin.download
+    $temporary = "$target.$([guid]::NewGuid().ToString('N')).partial"
     try {
         $zip = [IO.Compression.ZipFile]::OpenRead($archivePath)
         try {
-            # Extract only the exact pinned DLL, never the archive's other files.
-            $entries = @($zip.Entries | Where-Object { $_.FullName -ceq $manifest.nrRuntime.download.entry })
-            if ($entries.Count -ne 1 -or $entries[0].Length -ne $manifest.nrRuntime.bytes) {
-                throw 'The pinned NR archive does not contain the expected single DLL entry.'
-            }
-            [IO.Compression.ZipFileExtensions]::ExtractToFile($entries[0], $temporary)
-        } finally { $zip.Dispose() }
-        Assert-PinnedFile $temporary $manifest.nrRuntime
-        try { [IO.File]::Move($temporary, $target) }
-        catch [IO.IOException] {
-            if (!(Test-Path -LiteralPath $target -PathType Leaf)) { throw }
-            Assert-PinnedFile $target $manifest.nrRuntime
+            $entry = $zip.GetEntry($pin.download.entry)
+            if (!$entry) { throw "$($pin.download.file) has no entry $($pin.download.entry)." }
+            [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $temporary)
         }
-    } finally { Remove-Item -LiteralPath $temporary -ErrorAction SilentlyContinue }
+        finally { $zip.Dispose() }
+        Assert-Pin $temporary $pin
+        Move-VerifiedFile $temporary $target $pin.sha256 $pin.bytes
+    }
+    finally { Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue }
     return $target
 }
 
 $repo = Split-Path -Parent $PSScriptRoot
-$manifest = Get-Content -LiteralPath (Join-Path $repo 'manifests/graphics.json') -Raw | ConvertFrom-Json
-if ($manifest.schemaVersion -ne 1) { throw 'Unsupported graphics manifest schema.' }
+$manifest = Get-Content -Raw -LiteralPath (Join-Path $repo 'manifests/graphics.json') | ConvertFrom-Json
 $Cache = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Cache)
-Add-Type -AssemblyName System.IO.Compression
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-if ($PSVersionTable.PSVersion.Major -lt 6) {
-    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-}
-if ($ResolveRuntimeOnly) {
-    Resolve-PinnedRuntime
-    return
-}
+Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+if ($ResolveRuntimeOnly) { return Resolve-NrRuntime }
+
 $Bin = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Bin)
 $ReceiptPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ReceiptPath)
-
-$files = @($manifest.nrRuntime)
+$config = 'ReShade.ini', 'DepthOnly.ini', 'ZeldaDepthTap.fx', 'dlss5-bridge.cfg'
+$names = @($manifest.nrRuntime.file)
 foreach ($download in $manifest.downloads) {
-    if ($download.archive -eq 'file') { $files += $download }
-    else { $files += $download.entries }
+    if ($download.archive -eq 'file') { $names += $download.file }
+    else { $names += @($download.entries | ForEach-Object { $_.file }) }
 }
-$config = @('ReShade.ini', 'DepthOnly.ini', 'ZeldaDepthTap.fx', 'dlss5-bridge.cfg')
-$names = @($files | ForEach-Object { $_.file }) + $config
+$names += $config
+
+# Refuse before downloading anything if this would overwrite an existing preset.
 foreach ($name in $names) {
     $target = Join-Path $Bin $name
-    if ((Test-Path -LiteralPath $target) -or $target -eq $ReceiptPath) {
+    if (Test-Path -LiteralPath $target) {
         throw "Graphics staging requires a fresh preset directory. Conflicting path: $target"
     }
 }
 if (Test-Path -LiteralPath $ReceiptPath) { throw "Graphics receipt already exists: $ReceiptPath" }
 
-$runtime = Resolve-PinnedRuntime
+$runtime = Resolve-NrRuntime
+[void][IO.Directory]::CreateDirectory($Bin)
+foreach ($download in $manifest.downloads) {
+    $path = Get-Pin $download
+    if ($download.archive -eq 'file') { [IO.File]::Copy($path, (Join-Path $Bin $download.file)) }
+    else { Expand-PinnedEntries $path $download }
+}
+[IO.File]::Copy($runtime, (Join-Path $Bin $manifest.nrRuntime.file))
+foreach ($name in $config) {
+    [IO.File]::Copy((Join-Path $repo "presets/ultra-bin/$name"), (Join-Path $Bin $name))
+}
 
-$null = [IO.Directory]::CreateDirectory($Cache)
-$null = [IO.Directory]::CreateDirectory($Bin)
-$null = [IO.Directory]::CreateDirectory((Split-Path -Parent $ReceiptPath))
-$stage = Join-Path $Bin ('.graphics-' + [Guid]::NewGuid().ToString('N'))
-$null = [IO.Directory]::CreateDirectory($stage)
-$temporaryReceipt = "$ReceiptPath.$([Guid]::NewGuid().ToString('N')).tmp"
-$installed = [Collections.Generic.List[string]]::new()
-try {
-    foreach ($download in $manifest.downloads) {
-        $archivePath = Get-PinnedDownload $download
-        if ($download.archive -eq 'file') {
-            $destination = Join-Path $stage $download.file
-            [IO.File]::Copy($archivePath, $destination)
-            Assert-PinnedFile $destination $download
+$receipt = [ordered]@{
+    schemaVersion = 1
+    preset = 'Ultra'
+    nrRuntime = $manifest.nrRuntime
+    files = @(foreach ($name in $names) {
+        $path = Join-Path $Bin $name
+        [ordered]@{
+            file = $name
+            bytes = (Get-Item -LiteralPath $path).Length
+            sha256 = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
         }
-        else {
-            Expand-PinnedGraphicsArchive $archivePath $download
-        }
-    }
-    $stagedRuntime = Join-Path $stage $manifest.nrRuntime.file
-    [IO.File]::Copy($runtime, $stagedRuntime)
-    Assert-PinnedFile $stagedRuntime $manifest.nrRuntime
-    foreach ($name in $config) {
-        [IO.File]::Copy((Join-Path $repo "presets/ultra-bin/$name"), (Join-Path $stage $name))
-    }
-
-    $receipt = [ordered]@{
-        schemaVersion = 1
-        preset = 'Ultra'
-        nrRuntime = $manifest.nrRuntime
-        files = @(foreach ($name in $names) {
-            $path = Join-Path $stage $name
-            [ordered]@{
-                file = $name
-                bytes = (Get-Item -LiteralPath $path).Length
-                sha256 = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
-            }
-        })
-    }
-    [IO.File]::WriteAllText($temporaryReceipt, ($receipt | ConvertTo-Json -Depth 5))
-    foreach ($name in $names) {
-        $target = Join-Path $Bin $name
-        [IO.File]::Move((Join-Path $stage $name), $target)
-        $installed.Add($target)
-    }
-    [IO.File]::Move($temporaryReceipt, $ReceiptPath)
+    })
 }
-catch {
-    foreach ($path in $installed) { Remove-Item -LiteralPath $path -ErrorAction SilentlyContinue }
-    throw
-}
-finally {
-    Remove-Item -LiteralPath $temporaryReceipt -ErrorAction SilentlyContinue
-    Get-ChildItem -LiteralPath $stage -File | Remove-Item -ErrorAction SilentlyContinue
-    [IO.Directory]::Delete($stage)
-}
-
-Write-Host 'Ultra components staged and verified. The community NR runtime has a known Authenticode HashMismatch.'
+[void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($ReceiptPath))
+[IO.File]::WriteAllText($ReceiptPath, ($receipt | ConvertTo-Json -Depth 5))
+Write-Host 'Ultra components installed.'

@@ -1,95 +1,103 @@
-# Fixes and limits
+# Technical notes and limits
 
-## Full-resolution scene and depth
+## Full-resolution scene
 
-The verified Hookshot 2.1.0 guest image for `e0f3ccfa` contains a scene cap of
-3840×2160. At a 5120×1440 display output this can leave the scene/depth smaller
-than the swapchain, preventing the tested bridge from using matching depth.
+Hookshot 2.1.0's guest image for build `e0f3ccfa` caps the scene at
+3840×2160. At 5120×1440 output that leaves the scene and depth buffer smaller
+than the swapchain, and the DLSS bridge can't use the depth.
 
 `tools/patch_scene.py` changes the width at file offset `0x03f78570` from 3840
-to 5120, keeping the 2160 height cap. It accepts only the exact source digest
-and verifies the complete resulting digest. It runs on a new installation's
-copy. The source NUP and base build are never modified. Reapplying to the
-recognized patched image is harmless; all other images are rejected.
+to 5120 and keeps the 2160 height cap. It runs on the installation's copy of
+`image.bin`, accepts only the known original or already-patched image, and
+checks the result hash:
 
 | Image | SHA-256 |
 | --- | --- |
 | Original | `f77dd8d6448b4204ae2be6c91872f6a3ca4ae64fc6566e7b3ed0c3b908d98ee2` |
 | Patched | `8aff5492abc56fd237f09d7526d4c346e9a80911f41ba510b600ace08c6c5872` |
 
-`HOS_SCENE_NATIVE=1`, `HOS_DYNRES=0` and `HOS_OUTPUT_RES` select the full-size
-scene. Widescreen game patches come from Hookshot. We do not ship a game image
-or generated game code. The observed 5120×1440 scene crop and main D32 depth
-buffer support the resolution claim; display dimensions alone would not.
+`HOS_SCENE_NATIVE=1`, `HOS_DYNRES=0` and `HOS_OUTPUT_RES` then render the
+scene at the full output size. Widescreen support itself comes from Hookshot.
 
-## Common quality settings
+## Quality settings
 
-The shipped presets use custom docked settings, 16× texture filtering,
-full-size textures (16384 maximum dimension), RGBA8 decoding instead of further
-lossy ASTC-to-BC3 conversion, Lanczos filtering and 20% sharpening. The quality
-preset is custom (`quality_preset=0`), since Hookshot's named Ultra preset can
-also enable unwanted frame generation.
+Both presets ([`quality.ini`](../presets/quality.ini),
+[`quality-env.txt`](../presets/quality-env.txt)) use:
 
-The public settings omit the development PC's hardcoded CPU affinity masks.
-`TextureBudgetMB=0` leaves the cache budget to Hookshot; `12288` matches the
-tested 24 GiB GPU's override. These differences affect scheduling and memory
-pressure, not the requested image quality. They are not claimed FPS improvements.
+- a custom quality preset (`quality_preset=0`), because Hookshot's named Ultra
+  preset can turn on frame generation;
+- 16× anisotropic filtering, textures up to 16384 px, RGBA8 ASTC decoding
+  instead of re-compressing to BC3;
+- Lanczos upscaling with 20% sharpening;
+- `HOOKSHOT_OCCLUSION_OFF=1`, a workaround for the renderer's approximate
+  visibility queries;
+- `RX_VK_PRECOMPILE=0` and `RX_VK_NO_WARM=1`, which skip the long shader
+  warm-up. Shaders compile on first use instead, so new scenes can hitch once.
 
-`HOOKSHOT_OCCLUSION_OFF=1` retains the tested workaround for the renderer's
-approximated visibility-query behavior. `RX_VK_PRECOMPILE=0` and
-`RX_VK_NO_WARM=1` avoid the exhaustive precompile/warmup pass used by the
-builder; scene shaders still compile on demand. This shortens initial waiting
-but can introduce first-visit hitches. Do not measure those as warmed performance.
+`-TextureBudgetMB` sets `RX_VK_VRAM_MB`; by default Hookshot picks the budget.
 
-## Ultra activation and frame pacing
+## Ultra startup
 
-Bridge uses synthetic DLAA, depth and NVIDIA optical flow, passing frames
-through private D3D11/D3D12 resources and back to Vulkan. This is a community
-integration, not the game's native DLSS renderer. Hookshot's own `dlss=0`
-therefore remains correct. RenoDX creates and evaluates NR Feature18.
+The [DLSS 5 bridge](https://github.com/NIGos/dlss5-bridge) runs a synthetic
+DLAA session using depth from ReShade and motion from NVIDIA Optical Flow,
+passing frames through D3D11/D3D12 and back to Vulkan. RenoDX evaluates NGX
+Feature 18 (neural rendering) on that session. This is a community
+integration, not the game's own DLSS path, so Hookshot's `dlss=0` stays off.
 
-With the tested versions, the first synthetic DLAA creation can precede the
-RenoDX hook. The launcher waits for the hooks and a delivered frame, resizes
-the launched game's own window once, then restores it. This recreates the
-Vulkan runtime and synthetic session. It checks at least 60 successful
-Feature18 evaluations at the selected dimensions; it does not equate loading
-a DLL with working neural rendering.
+The bridge can create its first DLAA session before RenoDX has hooked D3D12.
+To fix that, `Launch.ps1`:
 
-Bridge `vk_sync=2` pipelines the previously processed frame, adding a frame
-of latency. `ngx_loader=1` leaves the NVIDIA driver loader unchanged. The
-Vulkan layer and ReShade search path are applied only to the game process.
-No registry installation or system-wide injector is used.
+1. waits for `D3D12 NGX hooks installed` in `bin/ReShade.log` and a delivered
+   frame in `bin/dlss5-bridge.log`;
+2. if no Feature 18 evaluation has happened yet, shrinks the game window by
+   20 px and restores it, which recreates the swapchain and the bridge
+   session, this time hooked;
+3. waits for at least 60 successful Feature 18 evaluations at the selected
+   resolution, and reports an error if they don't appear within 8 minutes.
 
-Optical-flow motion is less informed than the game's own motion vectors.
-The bridge can soften small text or smear dense foliage, and neural rendering
-can change fine details. The clean motion observed in the tested setup does
-not establish artifact-free output in every scene. Native remains available
-as the original-rendering alternative.
+The previous run's logs are kept as `*.previous` so old success lines can't be
+mistaken for the current run.
+
+Other details:
+
+- `vk_sync=2` in `dlss5-bridge.cfg` pipelines one frame, adding a frame of latency.
+- `ngx_loader=1` keeps the driver's own NGX loader.
+- The ReShade Vulkan layer is enabled only for the game process, via
+  `VK_IMPLICIT_LAYER_PATH` and `RESHADE_BASE_PATH_OVERRIDE`. No registry or
+  system-wide layer is installed. This needs Vulkan loader 1.3.295 or later,
+  and the loader ignores these variables for elevated processes.
+- `ZeldaDepthTap.fx` only exposes the depth buffer to ReShade; it writes no color.
+
+Optical flow is less precise than the game's own motion vectors, so Ultra can
+soften small text or smear dense foliage, and neural rendering can change fine
+details. Native is there if that bothers you.
 
 ## Why frame generation is off
 
-Combining the tested DLSS chain with FSR 3.1 frame generation caused visible
-flashing. Removing the neural bridge stopped that flashing, but FSR still
-produced multiple HUD/character images. The user confirmed a clean moving
-image with DLSS active and FSR/frame generation disabled. Those rejected
-settings are not part of either preset.
-
-Other local experiments (parallel bridge scheduling, removing a copy, renderer
-patch candidates and alternative CPU settings) did not establish a useful
-matched-scene FPS improvement. They are not silently applied in this package.
+FSR 3.1 frame generation combined with the DLSS chain caused visible flashing.
+Without the bridge, FSR frame generation still produced doubled HUD and
+character images. With frame generation off, motion was clean. Neither preset
+enables it.
 
 ## Damaged NUP resources
 
 The NUP used during development has three damaged compressed textures.
-Hookshot 2.1.0 detects these and supplies stand-ins from that user's own game
-resources. The two normal-map stand-ins (Fairy Fountain and Water Temple)
-passed a static size check. The Ganon stand-in remains problematic:
+Hookshot replaces them with neighboring textures from the same game files.
+Two (Fairy Fountain and Water Temple normal maps) fit their size limits. The
+third, `RBake_Scene_GanonStage_G_2_1_d0_t0.bntx.zs`, gets a replacement of
+9,101,416 bytes against a size-table limit of 6,934,920. That late-game area
+has not been tested. A clean dump should not have this problem.
 
-`RBake_Scene_GanonStage_G_2_1_d0_t0.bntx.zs` receives a neighboring texture
-whose decoded size is 9,101,416 bytes against a RESTBL limit of 6,934,920.
-Its late-game load and appearance have not been validated. A successful
-Castle Town test does not prove that this damaged dump can finish the game.
+## Tested setup
 
-No damaged texture or substitute is bundled here. The installer uses the
-upstream extraction behavior and documents this unresolved limit. A clean
-supported dump is preferable. We have not tested a second copy of the NUP.
+- Windows x64, Core i9-14900K, RTX 4090, NVIDIA driver 621.14, 5120×1440 display.
+- A fresh install from the NUP took about 26 minutes (627 s of compilation).
+- Both shortcuts started the game at 5120×1440 and loaded a save in Kakariko
+  Village. Ultra confirmed Feature 18 at 5120×1440.
+- Ultra ran at about 40–42 FPS in Castle Town; the on-screen counter showed
+  about 60 FPS for Native and 46 FPS for Ultra in Kakariko.
+
+Not tested: other GPUs or drivers, finishing the game, every keyboard prompt.
+
+Locally built executables can differ in hash from build to build; the inputs
+are pinned, not the outputs.

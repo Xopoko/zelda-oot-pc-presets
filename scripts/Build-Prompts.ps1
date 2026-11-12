@@ -21,29 +21,10 @@ if ((Test-Path -LiteralPath $outputPath) -or (Test-Path -LiteralPath $receiptFil
     throw 'Choose a new prompt mod folder and a new receipt file.'
 }
 
-$manifest = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot '../manifests/prompts.json') | ConvertFrom-Json
-$encoder = $manifest.astcenc
-[void][IO.Directory]::CreateDirectory($cachePath)
+. (Join-Path $PSScriptRoot 'Downloads.ps1')
+$encoder = (Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot '../manifests/prompts.json') | ConvertFrom-Json).astcenc
 $archive = Join-Path $cachePath ([IO.Path]::GetFileName(([uri]$encoder.url).AbsolutePath))
-if (-not (Test-Path -LiteralPath $archive -PathType Leaf)) {
-    $download = "$archive.$([guid]::NewGuid().ToString('N')).partial"
-    try {
-        Invoke-WebRequest -UseBasicParsing -Uri $encoder.url -OutFile $download
-        if ((Get-FileHash -LiteralPath $download -Algorithm SHA256).Hash -ne $encoder.sha256) {
-            throw "The astcenc $($encoder.version) download does not match its pinned SHA-256."
-        }
-        try {
-            [IO.File]::Move($download, $archive)
-        } catch [IO.IOException] {
-            if (-not (Test-Path -LiteralPath $archive -PathType Leaf)) { throw }
-        }
-    } finally {
-        [IO.File]::Delete($download)
-    }
-}
-if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $encoder.sha256) {
-    throw "The astcenc cache archive has an unexpected SHA-256. Remove the file and retry: $archive"
-}
+$archive = Get-PinnedDownload $encoder.url $archive $encoder.sha256
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $encoderPath = Join-Path $cachePath ("astcenc-" + [guid]::NewGuid().ToString('N') + '.exe')
@@ -62,7 +43,7 @@ try {
         '--output', $outputPath, '--astcenc', $encoderPath)
     $start = New-Object System.Diagnostics.ProcessStartInfo
     $start.FileName = $pythonPath
-    # These arguments are fixed flags and Windows paths. Preserve any trailing backslashes.
+    # Double trailing backslashes so they don't escape the closing quote.
     $start.Arguments = ($arguments | ForEach-Object { '"' + ($_ -replace '(\\+)$', '$1$1') + '"' }) -join ' '
     $start.UseShellExecute = $false
     $start.CreateNoWindow = $true
@@ -85,13 +66,7 @@ try {
         throw 'Keyboard prompt generation returned incomplete glyph or atlas coverage.'
     }
     [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($receiptFile))
-    $receiptStream = [IO.File]::Open($receiptFile, [IO.FileMode]::CreateNew)
-    try {
-        $writer = [IO.StreamWriter]::new($receiptStream)
-        try { $writer.Write($result) } finally { $writer.Dispose() }
-    } finally {
-        $receiptStream.Dispose()
-    }
+    [IO.File]::WriteAllText($receiptFile, $result)
 } finally {
     [IO.File]::Delete($encoderPath)
 }

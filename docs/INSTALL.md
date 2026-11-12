@@ -1,105 +1,84 @@
 # Installation and saves
 
-## Fresh installation
+## Install
 
-Run `Install.ps1` from this repository in Windows PowerShell 5.1 or PowerShell 7.
-Point `-Nup` at a dump you are entitled to use. Brackets and spaces in the name
-are supported. Choose an empty installation folder outside this checkout.
-
-The script downloads the pinned dependencies, validates the supported build,
-extracts and compiles the NUP, creates selected presets, patches copied scene
-data, regenerates prompts from the extracted resources and creates shortcuts.
-Game data stays on your computer.
+Run `Install.ps1` in Windows PowerShell 5.1 or PowerShell 7 from a normal
+(non-administrator) session. The destination must be a new or empty folder
+outside this repository.
 
 ```powershell
 .\Install.ps1 -Nup "D:\Dumps\game.nup" -Destination "D:\Games\ZeldaPresets"
 ```
 
-`-Preset Both` is the default. `-Preset Native` skips the Neural Rendering
-download, and `-Preset Ultra` creates only the Ultra preset. For Ultra, the
-installer verifies the runtime before the lengthy game build. A failed download
-or an invalid explicit `-NrRuntime` path stops the requested installation.
-[Runtime source and verification](DEPENDENCIES.md#neural-rendering-runtime).
+The installer checks the NUP version, downloads the pinned toolchain, builds
+the game, creates the presets, patches the scene-width cap
+([details](TECHNICAL.md#full-resolution-scene)), generates keyboard prompts
+from your game files and creates desktop shortcuts. Everything stays inside
+the destination folder; nothing is installed system-wide.
 
-Options:
+For Ultra, the Neural Rendering runtime is downloaded and verified before the
+long build starts, so a bad download fails early.
 
 | Option | Purpose |
 | --- | --- |
-| `-Resolution auto` | Read the primary display's physical pixels; default |
-| `-Resolution 5120x1440` | Explicit output; use the fullscreen display's actual size |
-| `-Language ru` | Game language; defaults to `en-US` |
-| `-TextureBudgetMB 12288` | Optional texture-cache budget; default uses Hookshot's automatic budget |
-| `-Jobs 12` | Limit concurrent compilation jobs; default uses builder auto selection |
-| `-DownloadCache "D:\Cache\Zelda"` | Reuse SHA-verified downloads; no overwrite of mismatching files |
-| `-NrRuntime "D:\Runtimes\nvngx_dlssnr.dll"` | Use the exact pinned DLL from disk in place of downloading its archive |
-| `-ImportProfile "D:\OldZelda\user"` | Copy the existing profile's `save/` into this new installation |
-| `-NoShortcuts` | Do not create desktop shortcuts |
-| `-ShortcutDirectory "D:\My shortcuts"` | Create the chosen directory if needed and write shortcuts there |
-| `-ExistingBuild "D:\ExistingHookshot"` | Advanced recovery only: requires every original binary/NUP hash in `knownBuild`; ordinary fresh rebuilds may differ |
+| `-Preset Both\|Native\|Ultra` | Presets to install; default `Both` |
+| `-Resolution 5120x1440` | Output size; default `auto` reads the primary display |
+| `-Language ru` | Game language; default `en-US` |
+| `-TextureBudgetMB 12288` | Texture-cache budget; default lets Hookshot decide |
+| `-Jobs 12` | Limit parallel compile jobs |
+| `-DownloadCache "D:\Cache\Zelda"` | Reuse verified downloads between installs |
+| `-NrRuntime "D:\nvngx_dlssnr.dll"` | Use a local copy of the pinned NR DLL instead of downloading it |
+| `-ImportProfile "D:\OldZelda\user"` | Copy `save/` from an existing profile folder |
+| `-NoShortcuts` | Skip desktop shortcuts |
+| `-ShortcutDirectory "D:\Shortcuts"` | Put shortcuts somewhere other than the desktop |
 
-Use the bundled interpreter through the provided scripts. You do not need a
-separate Python, C++ compiler, Codex or desktop automation tool. Dependencies
-are staged locally; there is no driver modification or global Vulkan-layer
-registration. A blocked GitHub/release download fails visibly with the URL and
-hash check; the installer does not substitute an unverified mirror.
+A failed hash check stops the install; there is no fallback mirror.
 
 ## Launch
 
-Use a desktop shortcut, or run from the installation folder:
+Use a desktop shortcut, or from the installation folder:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\Launch.ps1 -Preset Native
 powershell -NoProfile -ExecutionPolicy Bypass -File .\Launch.ps1 -Preset Ultra
 ```
 
-The launcher starts `bin/hookshot.exe` with the correct working directory,
-shared ROMFS and save profile. The root Hookshot builder is not the game.
-Close one session before switching presets.
+Run one preset at a time. The first visit to a scene compiles shaders and can
+stutter or briefly show missing materials.
 
-The first launch and first visit to a scene can pause to compile shaders;
-some geometry or materials can briefly appear incomplete while this finishes.
-Let it settle. Shader caches are private to each preset; do not transfer
-device-dependent caches between PCs. Ultra checks fresh logs for successful
-Feature18 evaluations at the requested resolution. Its one-time startup resize
-should settle back to fullscreen. An activation failure is reported and logged.
+Ultra resizes the game window once at startup and restores it; this is how
+the launcher gets neural rendering to attach
+([why](TECHNICAL.md#ultra-startup)). If activation is not confirmed, the
+launcher shows an error and writes `logs/launch-ultra.log`.
 
 ## Saves and upgrades
 
-Both presets use `<installation>/profile/save/`. The installer never scans
-other installations for saves. When `-ImportProfile` is specified, it copies
-`save/` into the new profile and keeps a second copy under
-`backups/imported-save/save/`. The source is untouched. Close the old game
-before importing so that it cannot change the source during the copy.
+Both presets use `<installation>/profile/save/`. `-ImportProfile` copies
+`save/` from the given folder into the new profile and keeps a second copy in
+`backups/imported-save/`. The source is not modified. Close the game first.
 
-The installer refuses a nonempty destination. For an upgrade:
+The installer never writes into a non-empty folder. To upgrade, install into a
+new folder with `-ImportProfile` pointing at the old `profile/`, check your
+save there, then remove the old installation.
 
-1. Close the game and copy `profile/` to a safe backup location.
-2. Install into a new folder, passing the old `profile/` to `-ImportProfile`.
-3. Load the desired save in the new installation before retiring the old one.
-
-An interrupted installation keeps its files and `installation-status.json` for
-diagnosis. Use a new destination for the retry; `-DownloadCache` can reuse the
-previous verified downloads. Never delete a folder that contains your only saves.
+A failed install leaves its files and `installation-status.json` in place.
+Retry into a new folder; pass `-DownloadCache` to reuse finished downloads.
 
 ## Removal
 
-Close the game. Back up `profile/`, then remove the installation folder and its
-shortcuts yourself. No uninstall script touches saves or other games. The source
-checkout can be removed separately. Downloads/build work may be kept as a cache.
+Close the game, back up `profile/`, then delete the installation folder and
+its shortcuts. There is no uninstaller.
 
 ## Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
-| NUP rejected | Title/update/build must match; read the builder check log |
-| Download hash mismatch | Check whether the source changed. Move a mismatching cached file out of the cache before retrying |
-| Ultra runtime download or verification fails | Check the [pinned source release](DEPENDENCIES.md#neural-rendering-runtime) or supply a local DLL matching the pinned SHA-256 with `-NrRuntime` |
-| Ultra looks native | Read the launch log and the preset's `bin/ReShade.log`; successful startup includes Feature18 count=60 |
-| First scene stalls | Shader compilation is expected on a fresh cache; compare warmed gameplay |
-| Repeated flicker or ghosting | Confirm `frame_generation=0` and `RX_VK_FRAMEGEN=0`; do not stack FSR/other injectors |
-| Wrong resolution | Use the monitor's physical size, then check `HOS_OUTPUT_RES` and `HOS_ASPECT` in both presets |
-| Prompts differ after remapping | Rebuild the prompt mod from the updated INI; it is not a live remapping overlay |
+| NUP rejected | Title, update and build must match; see `build/nup-check.log` |
+| Download hash mismatch | Move the bad file out of the download cache and retry |
+| Ultra looks like Native | `bin/ReShade.log` should contain `inline feature 18 evaluation succeeded` |
+| Flicker or ghosting | Check `frame_generation=0` and `RX_VK_FRAMEGEN=0`; don't add FSR or other injectors |
+| Wrong resolution | Check `HOS_OUTPUT_RES` and `HOS_ASPECT` in each preset's `hookshot_env.txt` |
+| Prompts wrong after rebinding | [Regenerate the prompt mod](CONTROLS.md#rebinding) |
 
-Logs and receipts stay in the installation. Review them for private paths
-before attaching anything to a public issue. Never attach NUPs, saves, keys,
-extracted assets, or proprietary DLLs.
+Logs can contain local paths. Don't attach NUPs, saves, keys, extracted game
+files or DLLs to public issues.

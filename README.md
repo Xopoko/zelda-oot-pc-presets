@@ -1,94 +1,74 @@
 # Zelda OOT · PC graphics presets
 
-Two reproducible Windows presets for **The Legend of Zelda: Ocarina of Time
-(Switch 2)** through [Hookshot](https://github.com/NotRexed/Hookshot), built
-locally from your own supported `.nup`.
+Two Windows presets for **The Legend of Zelda: Ocarina of Time (Switch 2)**
+running through [Hookshot](https://github.com/NotRexed/Hookshot), built
+locally from your own `.nup`.
 
-**Native Quality** preserves the game's rendering at full display resolution.
-**Ultra DLSS 5** adds the tested neural-rendering bridge. Both include
-ultrawide support, 16× anisotropic filtering, keyboard/mouse prompts and a
-desktop shortcut. FSR and frame generation are disabled in both presets.
+- **Native Quality** renders the game unchanged at full display resolution.
+- **Ultra DLSS 5** adds DLSS 5 neural rendering on top of the same build.
 
-> Installation from your NUP downloads the dependencies for both presets.
-> Ultra uses a SHA-256 pinned, community-patched `nvngx_dlssnr.dll` with
-> Authenticode status `HashMismatch`. [Runtime source and verification](docs/DEPENDENCIES.md#neural-rendering-runtime).
+Both include ultrawide support, 16× anisotropic filtering, keyboard/mouse
+prompts and a desktop shortcut. FSR and frame generation are off.
 
 | Native Quality | Ultra DLSS 5 |
 | --- | --- |
 | [![Native Quality](docs/images/native-preview.png)](docs/images/native-5120.png) | [![Ultra DLSS 5](docs/images/ultra-preview.png)](docs/images/ultra-5120.png) |
-| Full-resolution scene, 16× filtering, Lanczos and 20% sharpening | Same base rendering plus neural reconstruction and relighting |
 
-Click either screenshot for the full **5120×1440** capture. Same camera position
-at the Castle Town gate; moving characters and particles differ between captures.
-The FPS counter in a screenshot is an instant reading, not a benchmark.
+Click a screenshot for the full 5120×1440 capture (Castle Town gate, same
+camera position).
 
 ## Install
 
-1. Download the repository with **Code → Download ZIP** and extract it, or clone it.
-2. Open PowerShell in the extracted repository folder.
-3. Run this command to build the game locally and install **both presets**.
-   The installer downloads and verifies the pinned dependencies automatically
-   from a standard Windows user session.
+Download or clone this repository, open PowerShell in its folder and run:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -Nup "D:\Dumps\game.nup" -Destination "D:\Games\ZeldaPresets"
 ```
 
-Add `-Preset Native` to install Native Quality alone and skip the Neural Rendering
-download. If you already have the exact compatible DLL, `-NrRuntime` accepts
-its local path. [Install options](docs/INSTALL.md).
+The installer downloads hash-pinned dependencies, builds the game from your
+NUP and installs both presets. The first build takes 30 minutes or more.
+Then launch **Zelda Ocarina of Time - Native Quality** or
+**Zelda Ocarina of Time - Ultra DLSS 5** from the desktop. Both presets share
+one save folder.
 
-The first build can take **30 minutes or longer**. The installer selects the
-primary display's physical resolution. For the demonstrated setup, append
-`-Resolution 5120x1440 -TextureBudgetMB 12288`. Use that resolution only on the
-matching display. The automatic texture-cache budget is more portable; the
-12 GiB override was tested on a 24 GiB RTX 4090.
+- `-Preset Native` installs only Native and skips the Ultra downloads.
+- The output resolution defaults to the primary display. The screenshots used
+  `-Resolution 5120x1440 -TextureBudgetMB 12288` on a 24 GiB RTX 4090.
+- Ultra uses a community-patched `nvngx_dlssnr.dll` whose Authenticode
+  signature is broken (`HashMismatch`); the installer checks its SHA-256.
+  See [the runtime notes](docs/DEPENDENCIES.md#neural-rendering-runtime).
 
-Launch **Zelda Ocarina of Time - Native Quality** or **Zelda Ocarina of Time - Ultra DLSS 5** from the
-desktop after installation. Both use the same saves. A brief display resize
-during Ultra startup initializes the neural-rendering path automatically.
+More: [install options, saves, removal](docs/INSTALL.md) ·
+[controls](docs/CONTROLS.md) ·
+[dependencies](docs/DEPENDENCIES.md) ·
+[technical notes and limits](docs/TECHNICAL.md) ·
+[по-русски](docs/README.ru.md)
 
-[Detailed installation, saves and removal](docs/INSTALL.md) ·
-[Keyboard and mouse](docs/CONTROLS.md) ·
-[Dependencies and licenses](docs/DEPENDENCIES.md) ·
-[Fixes and known limitations](docs/TECHNICAL.md) ·
-[Validation](docs/VALIDATION.md) ·
-[Инструкция на русском](docs/README.ru.md)
+## Requirements
 
-## Requirements and scope
+- Windows x64, an SSD with about 60 GiB free, 32 GiB RAM recommended for the build.
+- The supported game version: title `0400486024DEC000`, update `v131072`
+  (1.1.1), guest build `e0f3ccfa`. Other versions are rejected before the build.
+- Output from 1280×720 up to 5120×2160.
+- Ultra: NVIDIA only. Tested on an RTX 4090 (Ada) with driver 621.14; other
+  GPUs and drivers are untested.
 
-- Windows x64, a current Vulkan-capable GPU driver, an SSD and substantial free
-  space. Reserve **60 GiB** for the build and two presets; runtime shader caches
-  can grow further. 32 GiB RAM or more is recommended for building.
-- Your own supported NUP: title `0400486024DEC000`, update `v131072`, game
-  `1.1.1`, guest build `e0f3ccfa`. Other versions are rejected before compilation.
-- Ultra was tested on **RTX 4090 / driver 621.14** with the exact runtime hashes
-  documented in the dependency manifest. Other GPUs and drivers are unverified.
-- Fullscreen output up to 5120 pixels wide and 2160 pixels high. The demonstrated
-  output is 5120×1440. Cutscenes and HUD keep their intended central proportions.
+On an i9-14900K and RTX 4090, Ultra runs at about 40–42 FPS at 5120×1440 in
+Castle Town. 60 FPS is not guaranteed.
 
-There is no 60 FPS guarantee. On an i9-14900K / RTX 4090, the earlier working
-Ultra setup measured around **40–42 real FPS** at 5120×1440 in the documented
-Castle Town view, without generated frames. The public package validation and
-its exact scope are recorded in [VALIDATION.md](docs/VALIDATION.md).
-
-Keyboard prompts cover many buttons, including HUD actions and ocarina notes;
-some pre-rendered controller diagrams still use Nintendo labels. Full-game
-completion and every prompt have not been verified. A damaged resource in the
-tested NUP affects an unverified late-game area; see [known limitations](docs/TECHNICAL.md).
+Known limits: a few pre-rendered tutorial images still show Nintendo buttons,
+and the game has not been played to the end with these presets. See
+[TECHNICAL.md](docs/TECHNICAL.md).
 
 ## Credits
 
-Built on the work of [NotRexed/Hookshot](https://github.com/NotRexed/Hookshot),
+Built on [NotRexed/Hookshot](https://github.com/NotRexed/Hookshot),
 [NIGos/dlss5-bridge](https://github.com/NIGos/dlss5-bridge),
 [ReShade](https://reshade.me/), RenoDX, NVIDIA DLSS,
 [ARM astc-encoder](https://github.com/ARM-software/astc-encoder) and
-[valentderah/totk-pc-recomp](https://github.com/valentderah/totk-pc-recomp).
-The prompt generator retains its upstream MIT notices and MacNativeGames credit.
-Exact provenance and third-party terms are in the dependency documentation.
+[valentderah/totk-pc-recomp](https://github.com/valentderah/totk-pc-recomp)
+(prompt drawing, MIT, originally from MacNativeGames).
 
-The original installer, configuration and patch recipes are MIT licensed.
-They were developed with **OpenAI Codex** assistance and checked against the
-local game. Screenshots are real game captures; no AI-generated artwork is used.
-Nintendo and NVIDIA are not affiliated with this repository. No game, model,
-save, key, or precompiled game executable is distributed here.
+The scripts in this repository are MIT licensed and were written with OpenAI
+Codex. No game files, saves, keys or prebuilt executables are distributed.
+Not affiliated with Nintendo or NVIDIA.
