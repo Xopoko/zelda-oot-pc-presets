@@ -17,6 +17,10 @@ prompts and a desktop shortcut. FSR and frame generation are off.
 Click a screenshot for the full 5120×1440 capture (Castle Town gate, same
 camera position).
 
+In motion, 1080p, Native on the left and Ultra on the right:
+
+https://github.com/user-attachments/assets/81cab6be-813f-4246-9c7b-02c9f13a01a9
+
 ## Install
 
 Download or clone this repository, open PowerShell in its folder and run:
