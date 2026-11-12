@@ -1,0 +1,64 @@
+{
+  "release": "v2.1.0",
+  "releasePage": "https://github.com/NotRexed/Hookshot/releases/tag/v2.1.0",
+  "upstreamManifest": {
+    "url": "https://github.com/NotRexed/Hookshot/releases/download/v2.1.0/hookshot-setup.txt",
+    "sha256": "21a0263b44443ebeff7768bbc4b720709c3245f7340a579dc85bd219cce0df74"
+  },
+  "game": {
+    "version": "1.1.1",
+    "titleId": "0400486024dec000",
+    "nupVersion": 131072,
+    "buildId": "e0f3ccfa"
+  },
+  "parts": [
+    {
+      "url": "https://github.com/NotRexed/Hookshot/releases/download/builder-parts/HookshotBuilder-app-5e62e1658e5f.zip",
+      "bytes": 5349210,
+      "sha256": "5e62e1658e5f20d9ffa0cf01da4dffcd157f8d17ef273e20f402ecf4aa91b028"
+    },
+    {
+      "url": "https://github.com/NotRexed/Hookshot/releases/download/builder-parts/HookshotBuilder-dotnet-99a5320f3eaf.zip",
+      "bytes": 64088397,
+      "sha256": "99a5320f3eaf4e45f5bde2351e1aa0a041f9c730a5b93dea59103fdd7b53427c"
+    },
+    {
+      "url": "https://github.com/NotRexed/Hookshot/releases/download/builder-parts/HookshotBuilder-python-c0eb2e3fbaba.zip",
+      "bytes": 55961280,
+      "sha256": "c0eb2e3fbabae82cb7d3dc61ec4b0e9b4b854269d9c38c3bbcc5a08e4497bd12"
+    },
+    {
+      "url": "https://github.com/NotRexed/Hookshot/releases/download/builder-parts/HookshotBuilder-emsdk-b4c8fc476654.zip",
+      "bytes": 120100315,
+      "sha256": "b4c8fc476654d7657806180039b3a96050c104cf6a93dab1cc5c027277ece368"
+    },
+    {
+      "url": "https://github.com/NotRexed/Hookshot/releases/download/builder-parts/HookshotBuilder-cpm-c30c77e4cf00.zip",
+      "bytes": 18641689,
+      "sha256": "c30c77e4cf000ebf11ec82e79ace4bef3206d3698c61146f7477baa428ea7ef0"
+    },
+    {
+      "url": "https://github.com/NotRexed/Hookshot/releases/download/builder-parts/HookshotBuilder-third_party-c361af471e14.zip",
+      "bytes": 29574904,
+      "sha256": "c361af471e14c0bb905cf3a5938be11d2db33ef92a4cea0b02e4c8b907177bab"
+    },
+    {
+      "url": "https://github.com/NotRexed/Hookshot/releases/download/builder-parts/HookshotBuilder-wgpu-native-a3b3d8253fba.zip",
+      "bytes": 2162194,
+      "sha256": "a3b3d8253fbaedf5975172994c0b45202fe2e4ff89a42ff5bfad53f9468cf498"
+    },
+    {
+      "url": "https://github.com/mstorsjo/llvm-mingw/releases/download/20261104/llvm-mingw-20261104-ucrt-x86_64.zip",
+      "bytes": 191037046,
+      "sha256": "552191b5754c49a5a20723276a6fc56541ea1922c4c50b7b669022333fc1b40f",
+      "destination": "HookshotBuilder/tools",
+      "root": "llvm-mingw-20261104-ucrt-x86_64",
+      "rename": "llvm-mingw"
+    }
+  ],
+  "builderFiles": {
+    "HookshotBuilder/HookshotBuilder-Setup.exe": "552a24c4c210a87dd3d6494a88a1a707cbedf6e50ddd2604caa5719c5c63a05e",
+    "HookshotBuilder/tools/python/python.exe": "4942b86a6597e5aee0128daa00050ed79bc21f6e709a78eb19cbfeb0c2f39ac9",
+    "HookshotBuilder/tools/nx2/make_game.py": "c7a09588c6a463ac5cc7a05078e64673f2c7c115009d9fc68184ba55903394fd"
+  }
+}

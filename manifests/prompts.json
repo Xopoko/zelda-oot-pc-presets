@@ -1,0 +1,9 @@
+{
+  "astcenc": {
+    "version": "5.7.1",
+    "url": "https://github.com/ARM-software/astc-encoder/releases/download/5.7.1/astcenc-5.7.1-windows-x64.zip",
+    "sha256": "117ed7cc2b0cc4f3d5774eaa1bde3a2ba75695c2f490e84e4a08d1726c963db8",
+    "entry": "bin/astcenc-sse2.exe",
+    "license": "https://github.com/ARM-software/astc-encoder/blob/5.7.1/LICENSE.txt"
+  }
+}
