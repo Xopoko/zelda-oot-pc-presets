@@ -3,7 +3,7 @@
 param(
     [ValidateSet('Native', 'Ultra')]
     [string]$Preset = 'Native',
-    [string]$InstallRoot = $PSScriptRoot,
+    [string]$InstallRoot,
     [string]$Profile,
     [switch]$NoConsole
 )
@@ -126,6 +126,9 @@ function Wait-NeuralRendering {
 }
 
 try {
+    if (!$InstallRoot) {
+        $InstallRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+    }
     $root = (Resolve-Path -LiteralPath $InstallRoot).ProviderPath
     $rootPrefix = $root.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
     $logDirectory = Join-Path $root 'logs'

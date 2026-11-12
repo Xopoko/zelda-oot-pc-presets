@@ -12,6 +12,11 @@ extracted resources remain private to the user's machine.
 [Hookshot license](https://github.com/NotRexed/Hookshot/blob/v2.1.0/LICENSE) ·
 [Pinned manifest](../manifests/hookshot-2.1.0.json).
 
+Desktop shortcuts use a small GUI launcher compiled locally from
+`scripts/LauncherBootstrap.cs` with Windows' built-in .NET Framework x64
+compiler. Its PowerShell child uses `CreateNoWindow`, so ordinary shortcut
+startup does not require a console. `-NoShortcuts` skips this optional step.
+
 The bundled Python already supplies `zstandard`, `fontTools` and Pillow for
 the prompt generator. ARM's **astcenc 5.7.1** SSE2 executable is fetched from
 its Apache-2.0 release and checked by SHA-256. `tools/prompts/button_icons.py`

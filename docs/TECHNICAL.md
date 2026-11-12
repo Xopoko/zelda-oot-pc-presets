@@ -60,6 +60,12 @@ of latency. `ngx_loader=1` leaves the NVIDIA driver loader unchanged. The
 Vulkan layer and ReShade search path are applied only to the game process.
 No registry installation or system-wide injector is used.
 
+Optical-flow motion is less informed than the game's own motion vectors.
+The bridge can soften small text or smear dense foliage, and neural rendering
+can change fine details. The clean motion observed in the tested setup does
+not establish artifact-free output in every scene. Native remains available
+as the original-rendering alternative.
+
 ## Why frame generation is off
 
 Combining the tested DLSS chain with FSR 3.1 frame generation caused visible

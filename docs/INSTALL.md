@@ -33,7 +33,7 @@ Options:
 | `-ImportProfile "D:\OldZelda\user"` | Copy the existing profile's `save/` into this new installation |
 | `-NoShortcuts` | Do not create desktop shortcuts |
 | `-ShortcutDirectory "D:\My shortcuts"` | Create the chosen directory if needed and write shortcuts there |
-| `-ExistingBuild "D:\ExistingHookshot"` | Advanced: reuse a hash-verified v2.1.0 build instead of recompiling |
+| `-ExistingBuild "D:\ExistingHookshot"` | Advanced recovery only: requires every original binary/NUP hash in `knownBuild`; ordinary fresh rebuilds may differ |
 
 Use the bundled interpreter through the provided scripts. You do not need a
 separate Python, C++ compiler, Codex or desktop automation tool. Dependencies
@@ -54,8 +54,9 @@ The launcher starts `bin/hookshot.exe` with the correct working directory,
 shared ROMFS and save profile. The root Hookshot builder is not the game.
 Close one session before switching presets.
 
-The first launch and first visit to a scene can pause to compile shaders.
-Let it finish. Shader caches are private to each preset; do not transfer
+The first launch and first visit to a scene can pause to compile shaders;
+some geometry or materials can briefly appear incomplete while this finishes.
+Let it settle. Shader caches are private to each preset; do not transfer
 device-dependent caches between PCs. Ultra checks fresh logs for successful
 Feature18 evaluations at the requested resolution. Its one-time startup resize
 should settle back to fullscreen. An activation failure is reported and logged.

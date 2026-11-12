@@ -21,12 +21,46 @@ validation. Source packages contain no test saves or proprietary outputs.
   runtime data into the source checkout. Invalid scene images remain unchanged.
 - Launcher tests with a disposable process checked quoted paths, child-only
   environment, stale log isolation, exact-PID resize/restore, activation matching
-  and preserving unrelated existing shortcuts. These checks do not prove the
-  real game starts correctly.
+  and preserving unrelated existing shortcuts. The GUI bootstrap's PowerShell
+  child returned a null console handle. A separate PowerShell 5.1 regression
+  checks launching without an explicit installation path from a different
+  working directory.
 
-The integrated fresh NUP build and real-game launch are being checked before
-the first public release. This paragraph will be replaced by the observed
-result; it is not a completed validation claim.
+## Integrated installation and game test — 12 November 2026
+
+The installer completed a **fresh build from the NUP** in an independent
+directory, using the pinned downloaded toolchain and a separately supplied NR
+runtime. Total elapsed installation time was approximately **26 minutes**;
+compilation took **627 seconds with zero failed files**. Both scene-cap patches,
+the regenerated prompt mod, the Ultra dependencies and the shared profile were
+created by the public scripts. No precompiled game or shader cache was copied
+from the older working installation.
+
+Both generated GUI shortcuts started the real game at **5120×1440**. The test
+loaded a copied save in **Kakariko Village** in both presets and inspected the
+rendered scene, character and R/F keyboard labels. Native's first scene initially
+showed incomplete shaders, then settled into a complete image. The scene's
+settled native log reported zero queued shader jobs and zero skipped draws.
+
+Ultra's launcher observed the hooks, resized the exact game window once,
+observed Vulkan runtime teardown and restored fullscreen. It confirmed
+**Feature18 count=60 at 5120×1440**; Bridge then logged more than 600 delivered
+Vulkan frames. The copied scene displayed correctly after activation. This run
+also exercised cleanup of an inherited ReShade-disable setting. FSR and frame
+generation remained off. Both sessions exited gracefully.
+
+The on-screen counter showed about 60 FPS in this native view and about 46 FPS
+in Ultra. These are scene-specific observations, **not a new matched-duration
+benchmark or a sustained 60 FPS claim**. Comprehensive keyboard navigation and
+motion artifact testing were not repeated for this package.
+
+The original user's **14 save files remained byte-identical** to the pre-test
+hash snapshot. Test play used only the installation's copied profile. Source-only
+publication checks found no game files, keys, credentials or private paths.
+
+Fresh executables can have different hashes because they are built locally.
+Acceptance here combines pinned inputs, the exact guest-image patch guard and
+real-game behavior; it is not a claim of bit-for-bit reproducible PE binaries.
 
 ## Prior in-game evidence for the presets
 

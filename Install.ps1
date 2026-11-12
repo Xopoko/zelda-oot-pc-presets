@@ -75,6 +75,9 @@ if ($width -gt 5120 -or $height -gt 2160 -or $width -lt 1280 -or $height -lt 720
 if ($PSVersionTable.PSEdition -eq 'Core' -and !$IsWindows) { throw 'This installer requires Windows x64.' }
 if (![Environment]::Is64BitOperatingSystem) { throw 'Windows x64 is required.' }
 if (Get-Process -Name hookshot -ErrorAction SilentlyContinue) { throw 'Close Hookshot before installing or importing a save profile.' }
+if (!$NoShortcuts -and !(Test-Path -LiteralPath (Join-Path $env:SystemRoot 'Microsoft.NET/Framework64/v4.0.30319/csc.exe') -PathType Leaf)) {
+    throw 'The built-in Windows .NET Framework x64 compiler is missing. Use -NoShortcuts to install with the PowerShell launcher, or repair Windows .NET Framework.'
+}
 if (!$NoShortcuts -and $ShortcutDirectory) {
     $ShortcutDirectory = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ShortcutDirectory)
     [void][IO.Directory]::CreateDirectory($ShortcutDirectory)

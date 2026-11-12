@@ -49,6 +49,7 @@ if ($Python) {
     & $Python -I -B (Join-Path $PSScriptRoot 'test_scene_patch.py')
     if ($LASTEXITCODE -ne 0) { throw 'Scene-patch behavioral checks failed.' }
 }
+& (Join-Path $PSScriptRoot 'Test-LauncherDefaults.ps1')
 Write-Host 'PASS: PowerShell syntax, JSON, save-preserving refusal, NR preflight and source-checkout isolation.'
 # The directory contains only this test's tiny text fixtures. Verify its parent first.
 if ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($temporary)) -ne [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')) {
